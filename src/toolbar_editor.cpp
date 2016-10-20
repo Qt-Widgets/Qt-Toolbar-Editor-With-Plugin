@@ -254,7 +254,7 @@ void Toolbar_Editor::on_button_remove_toolbar_clicked()
 
 void Toolbar_Editor::on_button_add_toolbar_clicked()
 {
-    QString name = tr("custom_toolbar_%1").arg(custom_counter++);
+    QString name = QString("custom_toolbar_%1").arg(custom_counter++);
     toolbar_items.insert(name,QList<QAction*>());
 
     combo_toolbar->addItem(name);
