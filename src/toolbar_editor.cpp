@@ -4,7 +4,7 @@
 
 @section License
 
-    Copyright (C) 2013-2014 Mattia Basaglia
+    Copyright (C) 2013-2016 Mattia Basaglia
 
     This software is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -29,7 +29,7 @@ Q_DECLARE_METATYPE(QToolBar*)
 Q_DECLARE_METATYPE(QAction*)
 
 Toolbar_Editor::Toolbar_Editor(QWidget *parent) :
-    QWidget(parent), target(NULL)
+    QWidget(parent), target(NULL), custom_counter(0)
 {
     setupUi(this);
 
@@ -254,7 +254,7 @@ void Toolbar_Editor::on_button_remove_toolbar_clicked()
 
 void Toolbar_Editor::on_button_add_toolbar_clicked()
 {
-    QString name = QString("custom_toolbar_%1").arg(toolbar_items.size());
+    QString name = tr("custom_toolbar_%1").arg(custom_counter++);
     toolbar_items.insert(name,QList<QAction*>());
 
     combo_toolbar->addItem(name);
