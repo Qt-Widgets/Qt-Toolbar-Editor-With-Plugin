@@ -4,7 +4,7 @@
 
 @section License
 
-    Copyright (C) 2013-2016 Mattia Basaglia
+    Copyright (C) 2012-2020 Mattia Basaglia
 
     This software is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -23,29 +23,24 @@
 #ifndef TOOLBAR_EDITOR_HPP
 #define TOOLBAR_EDITOR_HPP
 
-#include "ui_toolbar_editor.h"
 #include <QMainWindow>
+#include <memory>
 
-class Toolbar_Editor : public QWidget, private Ui::Toolbar_Editor
+class Toolbar_Editor : public QWidget
 {
     Q_OBJECT
     Q_PROPERTY(QMainWindow* targetWindow READ targetWindow WRITE setTargetWindow DESIGNABLE false)
     Q_PROPERTY(Qt::ToolButtonStyle buttonStyle READ buttonStyle WRITE setButtonStyle )
 
-private:
-
-    QMainWindow* target;
-    QMap<QString,QList<QAction*> > toolbar_items;
-    int custom_counter;
-    
 public:
     explicit Toolbar_Editor(QWidget *parent = 0);
+    ~Toolbar_Editor();
 
     /**
      * \brief Set the target window, will reset any changes
      */
     void setTargetWindow(QMainWindow* w);
-    QMainWindow* targetWindow() const { return target; }
+    QMainWindow* targetWindow() const;
 
     QSize sizeHint() const;
 
@@ -85,6 +80,9 @@ private slots:
 private:
     /// Insert a new action to the current toolbar
     void insert_action(QAction* new_action);
+
+    class Private;
+    std::unique_ptr<Private> d;
 };
 
 #endif // TOOLBAR_EDITOR_HPP

@@ -4,7 +4,7 @@
 
 @section License
 
-    Copyright (C) 2013-2016 Mattia Basaglia
+    Copyright (C) 2012-2020 Mattia Basaglia
 
     This software is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -21,6 +21,7 @@
 
 */
 #include "toolbar_editor.hpp"
+#include "ui_toolbar_editor.h"
 #include <QMenu>
 #include <QToolBar>
 
@@ -28,19 +29,38 @@ Q_DECLARE_METATYPE(QMenu*)
 Q_DECLARE_METATYPE(QToolBar*)
 Q_DECLARE_METATYPE(QAction*)
 
-Toolbar_Editor::Toolbar_Editor(QWidget *parent) :
-    QWidget(parent), target(NULL), custom_counter(0)
+class Toolbar_Editor::Private : public Ui::Toolbar_Editor
 {
-    setupUi(this);
+public:
+
+    QMainWindow* target = nullptr;
+    QMap<QString,QList<QAction*> > toolbar_items;
+    int custom_counter = 0;
+};
+
+Toolbar_Editor::Toolbar_Editor(QWidget *parent) :
+    QWidget(parent), d(new Private)
+{
+    d->setupUi(this);
 
     foreach(QToolButton* b, findChildren<QToolButton*>())
         b->setSizePolicy(QSizePolicy::Expanding,QSizePolicy::Fixed);
 }
 
+Toolbar_Editor::~Toolbar_Editor()
+{
+}
+
 void Toolbar_Editor::setTargetWindow(QMainWindow *w)
 {
-    target = w;
+    d->target = w;
     updateBars();
+}
+
+
+QMainWindow* Toolbar_Editor::targetWindow() const
+{
+    return d->target;
 }
 
 QSize Toolbar_Editor::sizeHint() const
@@ -50,20 +70,20 @@ QSize Toolbar_Editor::sizeHint() const
 
 void Toolbar_Editor::apply() const
 {
-    if ( !target )
+    if ( !d->target )
         return;
 
 
     QList<QToolBar*> new_toolbars;
 
-    for(QMap<QString,QList<QAction*> >::const_iterator i = toolbar_items.begin(),
-            e = toolbar_items.end(); i != e; ++i )
+    for(QMap<QString,QList<QAction*> >::const_iterator i = d->toolbar_items.begin(),
+            e = d->toolbar_items.end(); i != e; ++i )
     {
-        QToolBar *newtb = target->findChild<QToolBar*>(i.key());
+        QToolBar *newtb = d->target->findChild<QToolBar*>(i.key());
 
         if ( !newtb )
         {
-            newtb = new QToolBar(i.key(),target);
+            newtb = new QToolBar(i.key(), d->target);
             newtb->setObjectName(i.key());
             new_toolbars.push_back(newtb);
         }
@@ -77,17 +97,17 @@ void Toolbar_Editor::apply() const
     }
 
 
-    foreach(QToolBar* toolbar, target->findChildren<QToolBar*>())
+    foreach(QToolBar* toolbar, d->target->findChildren<QToolBar*>())
     {
-        if ( !toolbar_items.contains(toolbar->objectName()) )
+        if ( !d->toolbar_items.contains(toolbar->objectName()) )
         {
-            target->removeToolBar(toolbar);
+            d->target->removeToolBar(toolbar);
         }
     }
 
     foreach(QToolBar* toolbar, new_toolbars )
     {
-        target->addToolBar(Qt::TopToolBarArea,toolbar);
+        d->target->addToolBar(Qt::TopToolBarArea,toolbar);
         toolbar->show();
     }
 }
@@ -95,33 +115,33 @@ void Toolbar_Editor::apply() const
 
 void Toolbar_Editor::updateBars()
 {
-    if ( !target )
+    if ( !d->target )
         return;
 
-    combo_menu->clear();
-    list_menu->clear();
-    combo_toolbar->clear();
-    list_toolbar->clear();
-    toolbar_items.clear();
+    d->combo_menu->clear();
+    d->list_menu->clear();
+    d->combo_toolbar->clear();
+    d->list_toolbar->clear();
+    d->toolbar_items.clear();
 
-    foreach(QMenu* menu, target->findChildren<QMenu*>())
+    foreach(QMenu* menu, d->target->findChildren<QMenu*>())
     {
-        combo_menu->addItem(menu->title().replace('&',""),QVariant::fromValue(menu));
+        d->combo_menu->addItem(menu->title().replace('&',""),QVariant::fromValue(menu));
     }
 
 
-    foreach(QToolBar* toolbar, target->findChildren<QToolBar*>())
+    foreach(QToolBar* toolbar, d->target->findChildren<QToolBar*>())
     {
-        toolbar_items[toolbar->objectName()] = toolbar->actions();
-        combo_toolbar->addItem(toolbar->objectName()/*,QVariant::fromValue(toolbar)*/);
+        d->toolbar_items[toolbar->objectName()] = toolbar->actions();
+        d->combo_toolbar->addItem(toolbar->objectName()/*,QVariant::fromValue(toolbar)*/);
     }
 }
 
 
 void Toolbar_Editor::on_combo_menu_currentIndexChanged(int index)
 {
-    list_menu->clear();
-    QMenu* menu = combo_menu->itemData(index).value<QMenu*>();
+    d->list_menu->clear();
+    QMenu* menu = d->combo_menu->itemData(index).value<QMenu*>();
     if ( !menu )
         return;
 
@@ -137,15 +157,15 @@ void Toolbar_Editor::on_combo_menu_currentIndexChanged(int index)
         }
 
         item->setData(Qt::UserRole,QVariant::fromValue(act));
-        list_menu->addItem(item);
+        d->list_menu->addItem(item);
     }
 }
 
 void Toolbar_Editor::update_list_toolbar(QString name)
 {
-    list_toolbar->clear();
+    d->list_toolbar->clear();
 
-    foreach(QAction* act, toolbar_items[name] )
+    foreach(QAction* act, d->toolbar_items[name] )
     {
         QListWidgetItem *item;
         if ( !act->isSeparator() )
@@ -157,40 +177,39 @@ void Toolbar_Editor::update_list_toolbar(QString name)
         }
 
         item->setData(Qt::UserRole,QVariant::fromValue(act));
-        list_toolbar->addItem(item);
+        d->list_toolbar->addItem(item);
     }
 
 }
 
 void Toolbar_Editor::on_button_up_clicked()
 {
+    int curr_index = d->list_toolbar->currentRow();
 
-    int curr_index = list_toolbar->currentRow();
-
-    QList<QAction*>& list = toolbar_items[combo_toolbar->currentText()];
+    QList<QAction*>& list = d->toolbar_items[d->combo_toolbar->currentText()];
     if ( curr_index < 1 || curr_index >= list.size() )
         return;
 
-    qSwap(list[curr_index],list[curr_index-1]);
+    qSwap(list[curr_index], list[curr_index-1]);
 
-    update_list_toolbar(combo_toolbar->currentText());
-    list_toolbar->setCurrentRow(curr_index-1);
+    update_list_toolbar(d->combo_toolbar->currentText());
+    d->list_toolbar->setCurrentRow(curr_index-1);
 }
 
 
 void Toolbar_Editor::on_button_down_clicked()
 {
 
-    int curr_index = list_toolbar->currentRow();
+    int curr_index = d->list_toolbar->currentRow();
 
-    QList<QAction*>& list = toolbar_items[combo_toolbar->currentText()];
+    QList<QAction*>& list = d->toolbar_items[d->combo_toolbar->currentText()];
     if ( curr_index < 0 || curr_index >= list.size()-1 )
         return;
 
-    qSwap(list[curr_index],list[curr_index+1]);
+    qSwap(list[curr_index], list[curr_index+1]);
 
-    update_list_toolbar(combo_toolbar->currentText());
-    list_toolbar->setCurrentRow(curr_index+1);
+    update_list_toolbar(d->combo_toolbar->currentText());
+    d->list_toolbar->setCurrentRow(curr_index+1);
 
 
 
@@ -198,20 +217,20 @@ void Toolbar_Editor::on_button_down_clicked()
 
 void Toolbar_Editor::on_button_insert_clicked()
 {
-    insert_action( list_menu->currentItem()->data(Qt::UserRole).value<QAction*>() );
+    insert_action( d->list_menu->currentItem()->data(Qt::UserRole).value<QAction*>() );
 }
 
 void Toolbar_Editor::on_button_remove_clicked()
 {
-    int to_rm = list_toolbar->currentRow();
+    int to_rm = d->list_toolbar->currentRow();
 
 
-    QList<QAction*>& list = toolbar_items[combo_toolbar->currentText()];
+    QList<QAction*>& list = d->toolbar_items[d->combo_toolbar->currentText()];
     if ( to_rm >= 0 && to_rm < list.size() )
     {
         list.removeAt(to_rm);
-        update_list_toolbar(combo_toolbar->currentText());
-        list_toolbar->setCurrentRow(to_rm-1);
+        update_list_toolbar(d->combo_toolbar->currentText());
+        d->list_toolbar->setCurrentRow(to_rm-1);
     }
 
 }
@@ -225,22 +244,22 @@ void Toolbar_Editor::on_button_insert_separator_clicked()
 
 void Toolbar_Editor::insert_action(QAction *new_action)
 {
-    int act_before = list_toolbar->currentRow();
+    int act_before = d->list_toolbar->currentRow();
 
     if ( new_action )
     {
-        QList<QAction*>& list = toolbar_items[combo_toolbar->currentText()];
+        QList<QAction*>& list = d->toolbar_items[d->combo_toolbar->currentText()];
         if ( act_before >= 0 && act_before < list.size() )
         {
             list.insert(act_before+1,new_action);
-            update_list_toolbar(combo_toolbar->currentText());
-            list_toolbar->setCurrentRow(act_before+1);
+            update_list_toolbar(d->combo_toolbar->currentText());
+            d->list_toolbar->setCurrentRow(act_before+1);
         }
         else
         {
             list.push_back(new_action);
-            update_list_toolbar(combo_toolbar->currentText());
-            list_toolbar->setCurrentRow(list.size()-1);
+            update_list_toolbar(d->combo_toolbar->currentText());
+            d->list_toolbar->setCurrentRow(list.size()-1);
         }
 
     }
@@ -248,17 +267,17 @@ void Toolbar_Editor::insert_action(QAction *new_action)
 
 void Toolbar_Editor::on_button_remove_toolbar_clicked()
 {
-    toolbar_items.remove(combo_toolbar->currentText());
-    combo_toolbar->removeItem(combo_toolbar->currentIndex());
+    d->toolbar_items.remove(d->combo_toolbar->currentText());
+    d->combo_toolbar->removeItem(d->combo_toolbar->currentIndex());
 }
 
 void Toolbar_Editor::on_button_add_toolbar_clicked()
 {
-    QString name = QString("custom_toolbar_%1").arg(custom_counter++);
-    toolbar_items.insert(name,QList<QAction*>());
+    QString name = QString("custom_toolbar_%1").arg(d->custom_counter++);
+    d->toolbar_items.insert(name,QList<QAction*>());
 
-    combo_toolbar->addItem(name);
-    combo_toolbar->setCurrentIndex(combo_toolbar->count()-1);
+    d->combo_toolbar->addItem(name);
+    d->combo_toolbar->setCurrentIndex(d->combo_toolbar->count()-1);
 }
 
 
@@ -270,5 +289,5 @@ void Toolbar_Editor::setButtonStyle(Qt::ToolButtonStyle style)
 
 Qt::ToolButtonStyle Toolbar_Editor::buttonStyle() const
 {
-    return button_insert->toolButtonStyle();
+    return d->button_insert->toolButtonStyle();
 }
